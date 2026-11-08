@@ -9,3 +9,6 @@ __pycache__/
 .claude/settings.local.json
 brain/
 secrets/
+
+# 감성용 원문 임시 파일(규칙 7) — 커밋·아티팩트 금지
+pipeline/tmp/

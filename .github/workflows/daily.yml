@@ -1,6 +1,9 @@
 name: daily
 
-# 매일: 국회의원·대통령 수집 → 스테이징 적재 → members/president MERGE(SCD2) → 변경 Issue → 사이트 재검증
+# 매일 잡 2개(병렬):
+#  daily    — 국회의원·대통령 수집 → 스테이징 적재 → members/president MERGE(SCD2) → 변경 Issue → 사이트 재검증
+#  mentions — 발화 수집(Google News·YouTube·디시) → stg_news/mentions_daily 적재 → merge_news → 감성(Claude 배치) → sentiment_daily 적재
+#             원문은 pipeline/tmp/ 에만 두고 아티팩트에 올리지 않는다(CLAUDE.md 규칙 7).
 # 적재·MERGE SQL은 이 파일과 pipeline/sql/dml/*.sql을 PR로 승인한 것으로 간주한다(CLAUDE.md 절대 규칙 1).
 
 on:
@@ -77,4 +80,74 @@ jobs:
         if: always()
         with:
           name: snapshots
+          path: pipeline/out/
+
+  mentions:
+    runs-on: ubuntu-latest
+    env:
+      COLLECT_LIMIT: "20"        # 샘플 20명. 전원은 "0"
+      SENTIMENT_DAILY_BUDGET_KRW: "3000"
+      SENTIMENT_DAILY_LIMIT: "100"   # 첫 운영 기간 건수 상한(검증 후 0=없음으로)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r pipeline/requirements.txt
+
+      - name: GCP 인증(쓰기용 서비스계정)
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY_WRITER }}
+          project_id: ${{ env.GCP_PROJECT }}
+
+      - name: Google News 수집
+        continue-on-error: true
+        run: python pipeline/python/collect_gnews.py
+
+      - name: YouTube 수집
+        continue-on-error: true
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+        run: python pipeline/python/collect_youtube.py
+
+      - name: 디시인사이드 수집
+        continue-on-error: true
+        run: python pipeline/python/collect_dc.py
+
+      - name: 뉴스·언급량 적재
+        run: |
+          d=$(date -u -d '+9 hours' +%Y%m%d)
+          [ -f pipeline/out/news_$d.jsonl ] && python pipeline/python/load_snapshot.py pipeline/out/news_$d.jsonl --table stg_news --append --approve
+          for f in pipeline/out/mentions_*_$d.jsonl; do
+            [ -f "$f" ] && python pipeline/python/load_snapshot.py "$f" --table mentions_daily --append --keys snapshot_date,source --approve
+          done
+          true
+
+      - name: news MERGE(새 url만)
+        run: python pipeline/python/apply_sql.py pipeline/sql/dml/merge_news.sql --approve
+
+      - name: 감성 평가(Claude 배치)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python pipeline/claude/sentiment.py
+
+      - name: 감성 집계 적재
+        run: |
+          # 전날 미완 배치를 오늘 회수하면 sentiment_<전날>.jsonl 이 생기므로 날짜를 고정하지 않고 전부 적재
+          n=0
+          for f in pipeline/out/sentiment_*.jsonl; do
+            [ -f "$f" ] || continue
+            python pipeline/python/load_snapshot.py "$f" --table sentiment_daily --append --keys snapshot_date,source --approve; n=$((n+1))
+          done
+          [ "$n" = 0 ] && echo "감성 결과 없음(배치 미완 또는 입력 없음)"; true
+
+      - name: 원문 임시 파일 제거(아티팩트 제외 보장)
+        if: always()
+        run: rm -rf pipeline/tmp
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mentions-snapshots
           path: pipeline/out/

@@ -99,6 +99,13 @@ CLAUDE.md
 - 감성: `pipeline/claude/sentiment.py` — Haiku + Message Batches API + 프롬프트 캐싱. 출력 `{about_person, label, intensity}`. 인물당·전체 일 표본 상한. 샘플 100건 사용자 검수.
 - Actions: `daily.yml`에 발화 수집 잡을 인물 잡과 분리해 병렬. Secrets `YOUTUBE_API_KEY`, `ANTHROPIC_API_KEY`(선택 `GOOGLE_CSE_KEY`).
 
+## 2단계 구현 (2026-11-08) — 상세는 `docs/stage2_spec.md`
+- 소스 확정: Google News RSS, YouTube Data API, 디시인사이드 마이너 갤러리 4곳(이재명·더불어민주당·진보정치·보수정치) **목록 스캔**. 에펨코리아·클리앙·루리웹은 robots.txt가 검색 수집 금지 → 제외. Google Trends 제외.
+- 범위: 샘플 20명(`v_collect_targets.sample_rank <= COLLECT_LIMIT`, 정당 번갈아 배치) → 검증 후 `COLLECT_LIMIT=0`(전원).
+- 테이블: `stg_news`, `news`(url+person_id 유일), `mentions_daily`, `sentiment_daily`, 뷰 `v_collect_targets` (DDL 005 적용 완료).
+- 감성: `pipeline/claude/sentiment.py` Haiku 5.5 배치 + 캐싱, 일 예산 ₩3,000(`SENTIMENT_DAILY_BUDGET_KRW`) 초과 시 표본 자동 축소, 첫 운영 기간 `SENTIMENT_DAILY_LIMIT=100`.
+- Actions `mentions` 잡(인물 잡과 병렬). 원문은 `pipeline/tmp/`에만, 아티팩트 업로드 전 삭제.
+
 ## 3단계 메모 — 100점 스코어
 후보 골격: 소스별 긍부정 비율 → 표본 수 베이지안 수축 → 시간 감쇠 → 소스 가중 평균 → 0~100 정규화. `docs/methodology.md`로 공개. 방법론은 별도 세션에서 사용자와 확정.
 
