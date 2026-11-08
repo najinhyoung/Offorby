@@ -10,7 +10,7 @@ const notoSans = Noto_Sans_KR({
 });
 
 export const metadata: Metadata = {
-  title: "Offofby — 대한민국 공직자 한눈에",
+  title: "Offorby — 대한민국 공직자 한눈에",
   description: "대통령·국무위원·국회의원 목록과 지역구 정보",
 };
 
@@ -25,7 +25,7 @@ export default function RootLayout({
         <header className="border-b border-line">
           <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
             <Link href="/" className="text-lg font-bold tracking-tight">
-              Offofby
+              Offorby
             </Link>
             <span className="text-xs text-muted">매일 자동 갱신</span>
           </div>

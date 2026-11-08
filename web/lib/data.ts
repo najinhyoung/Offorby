@@ -5,7 +5,7 @@ import { sampleMembers, samplePresident } from "./sample";
 
 // GCP_PROJECT / GCP_SA_KEY(서비스계정 JSON 문자열)가 없으면 로컬 개발용 가짜 데이터를 쓴다.
 const project = process.env.GCP_PROJECT;
-const dataset = process.env.BQ_DATASET ?? "offofby";
+const dataset = process.env.BQ_DATASET ?? "offorby";
 
 export const usingSampleData = !project;
 

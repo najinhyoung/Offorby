@@ -2,7 +2,7 @@
 
 사용: python pipeline/python/load_snapshot.py <jsonl 파일> --table stg_assembly [--append] [--approve]
 --approve 없이 실행하면 행 수와 대상 테이블만 보여주고 적재하지 않는다.
-환경변수: GCP_PROJECT, BQ_DATASET(기본 offofby), BQ_LOCATION(기본 asia-northeast3)
+환경변수: GCP_PROJECT, BQ_DATASET(기본 offorby), BQ_LOCATION(기본 asia-northeast3)
 """
 import argparse
 import json
@@ -22,7 +22,7 @@ def main() -> None:
     args = parser.parse_args()
 
     project = os.environ.get("GCP_PROJECT")
-    dataset = os.environ.get("BQ_DATASET", "offofby")
+    dataset = os.environ.get("BQ_DATASET", "offorby")
     location = os.environ.get("BQ_LOCATION", "asia-northeast3")
     if not project:
         sys.exit("GCP_PROJECT 환경변수가 필요합니다.")

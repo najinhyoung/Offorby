@@ -21,7 +21,7 @@ from president_sites import PRESIDENT_SITES
 WIKI_API = "https://ko.wikipedia.org/w/api.php"
 WIKI_PAGE = "이재명 정부의 국무위원"  # 정부가 바뀌면 이 문서명만 바꾼다
 WIKI_URL = f"https://ko.wikipedia.org/wiki/{urllib.parse.quote(WIKI_PAGE)}"
-UA = {"User-Agent": "offofby-collector (+https://offofby.vercel.app)"}
+UA = {"User-Agent": "offorby-collector (+https://offorby.vercel.app)"}
 OUT_DIR = pathlib.Path(__file__).parents[1] / "out"
 
 

@@ -39,7 +39,7 @@ def fetch_page(key: str, page: int) -> list[dict]:
     if key:
         params["KEY"] = key
     query = urllib.parse.urlencode(params)
-    req = urllib.request.Request(f"{ENDPOINT}?{query}", headers={"User-Agent": "offofby-collector"})
+    req = urllib.request.Request(f"{ENDPOINT}?{query}", headers={"User-Agent": "offorby-collector"})
     with urllib.request.urlopen(req, timeout=30) as resp:
         body = json.load(resp)
     if "nwvrqwxyaytdsfvhu" not in body:

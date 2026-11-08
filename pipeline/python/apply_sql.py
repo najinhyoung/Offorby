@@ -21,7 +21,7 @@ def main() -> None:
     args = parser.parse_args()
 
     project = os.environ.get("GCP_PROJECT")
-    dataset = os.environ.get("BQ_DATASET", "offofby")
+    dataset = os.environ.get("BQ_DATASET", "offorby")
     location = os.environ.get("BQ_LOCATION", "asia-northeast3")
     if not project:
         sys.exit("GCP_PROJECT 환경변수가 필요합니다.")

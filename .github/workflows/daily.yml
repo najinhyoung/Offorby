@@ -13,8 +13,8 @@ permissions:
   issues: write
 
 env:
-  GCP_PROJECT: offofby
-  BQ_DATASET: offofby
+  GCP_PROJECT: offorby
+  BQ_DATASET: offorby
   BQ_LOCATION: asia-northeast3
   PYTHONIOENCODING: utf-8
 
@@ -68,7 +68,7 @@ jobs:
         env:
           REVALIDATE_SECRET: ${{ secrets.REVALIDATE_SECRET }}
         run: |
-          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer $REVALIDATE_SECRET" https://offofby.vercel.app/api/revalidate)
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer $REVALIDATE_SECRET" https://offorby.vercel.app/api/revalidate)
           echo "revalidate HTTP $code"; test "$code" = "200"
 
       - uses: actions/upload-artifact@v4

@@ -2,7 +2,7 @@
 
 사용: python pipeline/python/report_changes.py [--date YYYY-MM-DD]
 GitHub Actions에서 출력이 있으면 Issue를 만든다. 읽기만 하며 DB를 바꾸지 않는다.
-환경변수: GCP_PROJECT, BQ_DATASET(기본 offofby), BQ_LOCATION(기본 asia-northeast3)
+환경변수: GCP_PROJECT, BQ_DATASET(기본 offorby), BQ_LOCATION(기본 asia-northeast3)
 """
 import argparse
 import datetime as dt
@@ -59,7 +59,7 @@ def main() -> None:
     args = parser.parse_args()
 
     project = os.environ.get("GCP_PROJECT")
-    dataset = os.environ.get("BQ_DATASET", "offofby")
+    dataset = os.environ.get("BQ_DATASET", "offorby")
     location = os.environ.get("BQ_LOCATION", "asia-northeast3")
     if not project:
         sys.exit("GCP_PROJECT 환경변수가 필요합니다.")
