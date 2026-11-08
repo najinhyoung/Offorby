@@ -40,6 +40,8 @@ jobs:
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY_WRITER }}
+          # auth 액션은 GCP_PROJECT 등을 키 JSON의 project_id로 덮어쓴다 → 여기서 고정
+          project_id: ${{ env.GCP_PROJECT }}
 
       - name: 스테이징 적재
         run: python pipeline/python/load_snapshot.py pipeline/out/assembly_$(date -u -d '+9 hours' +%Y%m%d).jsonl --table stg_assembly --approve
