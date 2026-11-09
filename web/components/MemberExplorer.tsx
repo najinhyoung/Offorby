@@ -2,14 +2,31 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import type { Member } from "@/lib/types";
+import type { Member, Score } from "@/lib/types";
 import { regionOf } from "@/lib/region";
-import { GradeBadge } from "./GradeBadge";
+import { ReputationBadge } from "./ReputationBadge";
 
 const ALL = "전체";
+const SORTS = ["이름순", "등급순"] as const;
+type Sort = (typeof SORTS)[number];
 
-export function MemberExplorer({ members }: { members: Member[] }) {
+// 등급순: grade 오름차순(1이 위), NULL(데이터 부족)은 맨 뒤, 같은 등급은 score 내림차순, 그다음 이름.
+function byGrade(scores: Record<string, Score>) {
+  return (a: Member, b: Member) => {
+    const sa = scores[a.member_code];
+    const sb = scores[b.member_code];
+    const ga = sa?.grade ?? Infinity;
+    const gb = sb?.grade ?? Infinity;
+    if (ga !== gb) return ga - gb;
+    const d = (sb?.score ?? -1) - (sa?.score ?? -1);
+    if (d !== 0) return d;
+    return a.name.localeCompare(b.name, "ko");
+  };
+}
+
+export function MemberExplorer({ members, scores = {} }: { members: Member[]; scores?: Record<string, Score> }) {
   const [q, setQ] = useState("");
+  const [sort, setSort] = useState<Sort>("이름순");
   const [region, setRegion] = useState(ALL);
   const [party, setParty] = useState(ALL);
   const [type, setType] = useState("지역구");
@@ -32,6 +49,8 @@ export function MemberExplorer({ members }: { members: Member[] }) {
       (party === ALL || m.party === party) &&
       (!q || m.name.includes(q) || m.district.includes(q)),
   );
+  // getMembers()가 이름순으로 주므로 이름순은 원래 순서를 유지
+  const sorted = sort === "등급순" ? [...filtered].sort(byGrade(scores)) : filtered;
 
   const select = "rounded border border-line bg-background px-2 py-2 text-sm";
 
@@ -40,7 +59,7 @@ export function MemberExplorer({ members }: { members: Member[] }) {
       <h2 id="members-heading" className="mb-3 text-xl font-bold">
         국회의원
       </h2>
-      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
         <input
           type="search"
           placeholder="이름·지역구 검색"
@@ -64,12 +83,20 @@ export function MemberExplorer({ members }: { members: Member[] }) {
             <option key={v}>{v}</option>
           ))}
         </select>
+        <select aria-label="정렬" value={sort} onChange={(e) => setSort(e.target.value as Sort)} className={select}>
+          {SORTS.map((v) => (
+            <option key={v}>{v}</option>
+          ))}
+        </select>
       </div>
-      <p className="mb-2 text-sm text-muted" aria-live="polite">
-        {filtered.length}명
+      <p className="mb-2 flex items-center justify-between text-sm text-muted" aria-live="polite">
+        <span>{filtered.length}명</span>
+        <Link href="/methodology" className="text-accent hover:underline">
+          평판등급(준비 중) 산정 방법
+        </Link>
       </p>
       <ul className="divide-y divide-line rounded border border-line">
-        {filtered.map((m) => (
+        {sorted.map((m) => (
           <li key={m.member_code}>
             <Link
               href={`/members/${m.member_code}`}
@@ -80,7 +107,7 @@ export function MemberExplorer({ members }: { members: Member[] }) {
                 <span className="ml-2 text-sm text-muted">{m.party}</span>
                 <span className="block truncate text-sm text-muted">{m.district}</span>
               </span>
-              <GradeBadge />
+              <ReputationBadge score={scores[m.member_code]} compact />
             </Link>
           </li>
         ))}

@@ -5,7 +5,7 @@
 
 ## 결정 (사용자 확인, 2026-11-08)
 - 소스: **Google News RSS, YouTube Data API v3, 디시인사이드(정치 관련 갤러리 목록 스캔)**. 에펨코리아·클리앙·루리웹은 robots.txt가 검색 수집을 금지 → 제외. Google Trends 제외.
-- 범위: **샘플 20명**(대통령 1 + 의원 19)으로 시작, 검증 후 전원. 환경변수 `COLLECT_LIMIT`(기본 20, 0 = 전원).
+- 범위: **샘플 20명**(대통령 1 + 의원 19)으로 시작, 검증 후 전원. 환경변수 `COLLECT_LIMIT`(기본 20, 0 = 전원). **2026-11-09 전원(`COLLECT_LIMIT=0`)으로 전환**, 유튜브만 80명/일 순환.
 - 감성: Claude Haiku(`claude-haiku-5-5`), Message Batches API + 프롬프트 캐싱. **일 비용 상한 ₩3,000**(`SENTIMENT_DAILY_BUDGET_KRW`), 넘으면 표본을 줄여서 맞춤.
 - 원문(유튜브 댓글·디시 제목·뉴스 제목 중 감성용 텍스트)은 `pipeline/tmp/`에만 두고 **BigQuery·Actions 아티팩트에 올리지 않는다**(CLAUDE.md 규칙 7). 뉴스 제목·링크는 규칙 4에 따라 `news` 테이블에 저장 가능.
 
@@ -51,6 +51,7 @@ v_collect_targets  (위)
 
 1. `collect_gnews.py` — `https://news.google.com/rss/search?q={query_name}&hl=ko&gl=KR&ceid=KR:ko`. 창 안의 기사만. 출력 `out/news_YYYYMMDD.jsonl`(→ stg_news) + `out/mentions_gnews_YYYYMMDD.jsonl`(gnews/articles). 제목을 감성 입력에 추가.
 2. `collect_youtube.py` — `search.list(q=query_name, type=video, publishedAfter=창 시작, regionCode=KR, relevanceLanguage=ko, maxResults=50, order=date)` 100 unit → `videos.list(part=statistics)` 1 unit/50개 → 조회수 합·댓글 수 합. `commentThreads.list(videoId, maxResults=100, order=relevance, textFormat=plainText)` 1 unit씩, 인물당 상위 3개 영상. 댓글 텍스트는 감성 입력에만. `YOUTUBE_API_KEY` 없으면 경고 후 종료(0). 일 쿼터 예산 `YOUTUBE_DAILY_UNITS`(기본 9,000) 넘기 전에 중단. 출력 `out/mentions_youtube_YYYYMMDD.jsonl`.
+   **순환(2026-11-09 추가)**: 전원 300명은 일 쿼터(10,000 unit)의 3배라, `YOUTUBE_ROTATE`(기본 80)명씩 의원을 sample_rank 순 묶음으로 나눠 날짜(KST 일수 % 묶음 수)로 번갈아 수집한다(299명 → 4묶음 → 4일 주기, 매일 ≈ 81×104 ≈ 8,400 unit). 대통령은 매일. 순환 대상의 창은 `--since-hours × 주기`(기본 96h)로 넓혀 빠진 날을 덮고, 그 값을 `detail.window_hours`에 남긴다 → **스코어링은 youtube 지표를 window_hours로 나눠 일평균으로 정규화해야 한다.** 0이면 순환 없음.
 3. `collect_dc.py` — robots.txt: 일반 봇 허용, 검색 URL은 불가 → **갤러리 목록 페이지**(`/board/lists/?id={gall}&page={n}`, 마이너 갤러리는 `/mgallery/board/lists/`)를 최근 N페이지(기본 20) 훑어 창 안 글의 제목에서 대상 이름을 매칭. 갤러리 ID 목록은 `dc_galleries.py`에 상수로(정치 관련 2~4개; 구현 시 실제 응답으로 ID 확인하고 robots의 갤러리 차단 목록과 대조). 요청 간격 1초 이상. 집계 `dc/posts`(글 수), `dc/comments`(목록의 댓글 수 합). 제목만 감성 입력에(본문 요청 안 함). 출력 `out/mentions_dc_YYYYMMDD.jsonl`.
 
 ## 감성 (`pipeline/claude/sentiment.py`, sentiment 작성)

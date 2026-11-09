@@ -2,7 +2,7 @@ name: daily
 
 # 매일 잡 2개(병렬):
 #  daily    — 국회의원·대통령 수집 → 스테이징 적재 → members/president MERGE(SCD2) → 변경 Issue → 사이트 재검증
-#  mentions — 발화 수집(Google News·YouTube·디시) → stg_news/mentions_daily 적재 → merge_news → 감성(Claude 배치) → sentiment_daily 적재
+#  mentions — 발화 수집(Google News·YouTube·디시) → stg_news/mentions_daily 적재 → merge_news → 감성(Claude 배치) → sentiment_daily 적재 → 점수·등급(scores)
 #             원문은 pipeline/tmp/ 에만 두고 아티팩트에 올리지 않는다(CLAUDE.md 규칙 7).
 # 적재·MERGE SQL은 이 파일과 pipeline/sql/dml/*.sql을 PR로 승인한 것으로 간주한다(CLAUDE.md 절대 규칙 1).
 
@@ -85,9 +85,10 @@ jobs:
   mentions:
     runs-on: ubuntu-latest
     env:
-      COLLECT_LIMIT: "20"        # 샘플 20명. 전원은 "0"
+      COLLECT_LIMIT: "0"         # 전원(대통령 + 의원 전원). 샘플만 돌리려면 "20"
+      YOUTUBE_ROTATE: "80"       # 유튜브는 쿼터(일 10,000 unit) 때문에 의원 80명/일 순환(≈4일 주기), 대통령은 매일
       SENTIMENT_DAILY_BUDGET_KRW: "3000"
-      SENTIMENT_DAILY_LIMIT: "100"   # 첫 운영 기간 건수 상한(검증 후 0=없음으로)
+      SENTIMENT_DAILY_LIMIT: "0"     # 건수 상한 없음(비용 상한 ₩3,000이 표본을 줄인다). 2026-11-09 샘플 검증 후 해제
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -141,6 +142,12 @@ jobs:
             python pipeline/python/load_snapshot.py "$f" --table sentiment_daily --append --keys snapshot_date,source --approve; n=$((n+1))
           done
           [ "$n" = 0 ] && echo "감성 결과 없음(배치 미완 또는 입력 없음)"; true
+
+      - name: 점수·등급 계산(감성 28일 → scores)
+        run: |
+          python pipeline/python/score.py
+          d=$(date -u -d '+9 hours' +%Y%m%d)
+          python pipeline/python/load_snapshot.py pipeline/out/scores_$d.jsonl --table scores --append --approve
 
       - name: 원문 임시 파일 제거(아티팩트 제외 보장)
         if: always()

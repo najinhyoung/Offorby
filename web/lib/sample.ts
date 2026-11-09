@@ -1,4 +1,4 @@
-import type { Member, President } from "./types";
+import type { Member, President, Score } from "./types";
 
 // 로컬 개발용 가짜 데이터. 실존 인물·정당이 아님.
 const districts = [
@@ -28,3 +28,24 @@ export const sampleMembers: Member[] = Array.from({ length: 30 }, (_, i) => {
 });
 
 export const samplePresident: President = { name: "예시대통령", start_date: "2025-06-04", verified: false };
+
+// 평판등급(준비 중) 폴백. 등급 구간·데이터 부족 케이스가 한 화면에 보이도록 섞어 둔다.
+const sampleScoreRows: [string, number | null, number | null, number, number | null][] = [
+  ["PRESIDENT", 63.4, 4, 212, 148.2],
+  ["SAMPLE001", 91.2, 1, 48, 31.5],
+  ["SAMPLE002", 74.8, 3, 35, 22.1],
+  ["SAMPLE003", 52.0, 5, 120, 80.6],
+  ["SAMPLE004", 44.5, 6, 27, 18.3],
+  ["SAMPLE005", 23.7, 8, 64, 40.9],
+  ["SAMPLE006", 8.1, 10, 19, 12.4],
+  ["SAMPLE007", null, null, 6, 4.2], // 표본 부족
+  ["SAMPLE008", 50.0, 5, 10, 7.0],
+];
+export const sampleScores: Score[] = sampleScoreRows.map(([person_id, score, grade, n_samples, n_eff]) => ({
+  person_id,
+  snapshot_date: "2026-11-09",
+  score,
+  grade,
+  n_samples,
+  n_eff,
+}));

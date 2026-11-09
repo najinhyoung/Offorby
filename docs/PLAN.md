@@ -105,8 +105,15 @@ CLAUDE.md
 - 테이블: `stg_news`, `news`(url+person_id 유일), `mentions_daily`, `sentiment_daily`, 뷰 `v_collect_targets` (DDL 005 적용 완료).
 - 감성: `pipeline/claude/sentiment.py` Haiku 5.5 배치 + 캐싱, 일 예산 ₩3,000(`SENTIMENT_DAILY_BUDGET_KRW`) 초과 시 표본 자동 축소, 첫 운영 기간 `SENTIMENT_DAILY_LIMIT=100`.
 - Actions `mentions` 잡(인물 잡과 병렬). 원문은 `pipeline/tmp/`에만, 아티팩트 업로드 전 삭제.
+- 2026-11-09: 샘플 20명 검증(로컬·Actions 모두 성공, 감성 ₩4.6/일) 후 **전원 전환**(`COLLECT_LIMIT=0`, `SENTIMENT_DAILY_LIMIT=0`). 유튜브는 쿼터 때문에 의원 80명/일 순환(`YOUTUBE_ROTATE`), 대통령 매일.
 
-## 3단계 메모 — 100점 스코어
+## 3단계 구현 (2026-11-09) — 상세는 `docs/stage3_spec.md`, 공개 설명은 `docs/methodology.md`
+- 점수 v1: 감성만 사용. 소스별 순감성(강도 가중) → 베이지안 수축(k=20) → 28일 창·반감기 14일 → 뉴스 0.5·유튜브 0.3·디시 0.2 → `50 + 50×순감성`.
+- 등급: 절대 구간 10단계(1등급 90~100 … 10등급 0~9). 표본 10건 미만은 "데이터 부족".
+- `pipeline/python/score.py` → `scores` 테이블(일별 이력) → 뷰 `v_latest_scores`(DDL 006 적용 완료). Actions `mentions` 잡 마지막에 매일 계산·적재.
+- 화면: 대통령 카드·의원 목록·상세에 "평판등급(준비 중)" 배지, 등급순 정렬, `/methodology` 페이지.
+
+## 3단계 메모 — 100점 스코어 (초기 구상, 위 구현으로 대체)
 후보 골격: 소스별 긍부정 비율 → 표본 수 베이지안 수축 → 시간 감쇠 → 소스 가중 평균 → 0~100 정규화. `docs/methodology.md`로 공개. 방법론은 별도 세션에서 사용자와 확정.
 
 ## 장기 메모

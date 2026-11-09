@@ -11,7 +11,7 @@ const notoSans = Noto_Sans_KR({
 
 export const metadata: Metadata = {
   title: "Offorby — 대한민국 공직자 한눈에",
-  description: "대통령·국무위원·국회의원 목록과 지역구 정보",
+  description: "대통령·국회의원 목록과 지역구 정보, 평판등급(준비 중)",
 };
 
 export default function RootLayout({

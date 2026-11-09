@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { GradeBadge } from "@/components/GradeBadge";
-import { getMember } from "@/lib/data";
+import { ReputationBadge } from "@/components/ReputationBadge";
+import { getLatestScores, getMember } from "@/lib/data";
 
 export const revalidate = 86400;
 
@@ -12,8 +12,9 @@ export async function generateStaticParams() {
 
 export default async function MemberPage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
-  const m = await getMember(code);
+  const [m, scores] = await Promise.all([getMember(code), getLatestScores()]);
   if (!m) notFound();
+  const score = scores.get(m.member_code);
 
   const rows: [string, string | null][] = [
     ["정당", m.party],
@@ -40,7 +41,7 @@ export default async function MemberPage({ params }: { params: Promise<{ code: s
             {m.party} · {m.district}
           </p>
         </div>
-        <GradeBadge />
+        <ReputationBadge score={score} />
       </header>
       <dl className="divide-y divide-line rounded border border-line">
         {rows
@@ -58,7 +59,9 @@ export default async function MemberPage({ params }: { params: Promise<{ code: s
         </a>
       )}
       <section className="rounded border border-dashed border-line px-3 py-6 text-center text-sm text-muted">
-        인터넷 언급량·뉴스 평판과 한줄평은 준비 중입니다.
+        {score
+          ? `평판등급(준비 중)은 ${score.snapshot_date} 기준 최근 28일 온라인 언급을 집계한 값입니다. 한줄평은 준비 중입니다.`
+          : "인터넷 언급량·뉴스 평판과 한줄평은 준비 중입니다."}
       </section>
     </article>
   );

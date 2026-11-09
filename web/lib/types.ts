@@ -13,6 +13,16 @@ export type Member = {
   homepage: string | null;
 };
 
+// v_latest_scores 1행. person_id = members.member_code | 'PRESIDENT'. 표본 < 10이면 score·grade는 null(데이터 부족).
+export type Score = {
+  person_id: string;
+  snapshot_date: string; // YYYY-MM-DD
+  score: number | null; // 0~100
+  grade: number | null; // 1(좋음)~10(나쁨)
+  n_samples: number;
+  n_eff: number | null;
+};
+
 export type President = {
   name: string | null; // 공석(권한대행 체제 등)이면 null
   start_date: string | null; // 취임일 YYYY-MM-DD

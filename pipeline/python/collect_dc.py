@@ -76,12 +76,31 @@ def scan_gallery(gall: str, kind: str, pages: int, start: dt.datetime) -> tuple[
     return kept, read
 
 
+# 2글자 이름(김건·박정·황희…) 뒤에 바로 오는 음절이 이것들 중 하나면 이름이 끝난 것으로 본다(조사·호칭). 그 외 음절이면 다른 이름의 일부(김건희·박정희·황희찬)로 보고 제외.
+NAME_TAIL_OK = set("이가은는도을를의와과에께한님씨랑만")
+
+
+def name_in_title(name: str, title: str) -> bool:
+    """제목에 이름이 있는지. 3글자 이상은 단순 포함, 2글자 이하는 뒤 음절이 조사/호칭/비한글일 때만 인정."""
+    if not name:
+        return False
+    if len(name) >= 3:
+        return name in title
+    start = 0
+    while (i := title.find(name, start)) != -1:
+        nxt = title[i + len(name):i + len(name) + 1]
+        if not nxt or not ("가" <= nxt <= "힣") or nxt in NAME_TAIL_OK:
+            return True
+        start = i + 1
+    return False
+
+
 def match_targets(posts: list[dict], targets: list[dict]) -> dict[str, list[dict]]:
-    """제목에 name이 포함된 글을 인물별로 모은다(이름 필수, 직함 단독 매칭 없음)."""
+    """제목에 name이 포함된 글을 인물별로 모은다(이름 필수, 직함 단독 매칭 없음). 2글자 이름은 name_in_title 규칙."""
     hits: dict[str, list[dict]] = {t["person_id"]: [] for t in targets}
     for p in posts:
         for t in targets:
-            if t["name"] and t["name"] in p["title"]:
+            if name_in_title(t["name"], p["title"]):
                 hits[t["person_id"]].append(p)
     return hits
 

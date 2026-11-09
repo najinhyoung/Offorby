@@ -8,6 +8,7 @@
 - `pipeline/python/` — 일반 Python 운영 스크립트(수집·적재·스코어링). LLM 호출 없음.
 - `pipeline/claude/` — Claude API를 호출하는 운영 스크립트(감성 평가 등)만.
 - `pipeline/sql/ddl/`, `pipeline/sql/dml/` — BigQuery SQL. **모든 DB 변경은 이 파일들로만.**
+- `pipeline/python/score.py` — 감성 집계(28일)로 100점 점수·10단계 등급 계산(방법: `docs/methodology.md`, 계약: `docs/stage3_spec.md`).
 - `pipeline/python/assembly_apis.py` — 열린국회정보 API 엔드포인트 4종(인적사항·발의법률안·상임위활동·정책자료실). 키 하나(`ASSEMBLY_API_KEY`)로 모두 호출.
 - GitHub Actions(`.github/workflows/daily.yml`)가 매일 실행.
 

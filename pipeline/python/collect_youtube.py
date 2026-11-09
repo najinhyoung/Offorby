@@ -5,15 +5,18 @@
   → videos.list(part=statistics, 최대 50 id) 1 unit
   → commentThreads.list(videoId, maxResults=100, order=relevance, textFormat=plainText) 1 unit × 댓글 많은 상위 3개 영상
 일 쿼터 예산 YOUTUBE_DAILY_UNITS(기본 9000)를 넘기기 전에 남은 인물을 건너뛴다.
+순환(YOUTUBE_ROTATE, 기본 80): 대통령은 매일, 의원은 sample_rank 순으로 80명씩 묶어 날짜에 따라 번갈아 수집한다
+(299명 → 4묶음 → 4일 주기). 순환 대상의 수집 창은 주기만큼 늘려(--since-hours × 주기) 빠진 날을 덮는다. 0이면 순환 없음.
 
 - 출력: pipeline/out/mentions_youtube_YYYYMMDD.jsonl → mentions_daily (youtube/videos, youtube/views, youtube/comments; detail에 video_ids = 공개 식별자)
 - 댓글 텍스트는 감성 입력(pipeline/tmp/)에만 넣고 어디에도 저장하지 않는다(CLAUDE.md 규칙 7)
 - YOUTUBE_API_KEY 없으면 경고 후 종료 코드 0
 
 사용: python pipeline/python/collect_youtube.py [--dry-run] [--limit N] [--since-hours 24] [--targets-file x.jsonl]
-                                              [--units 9000] [--comment-videos 3]
+                                              [--units 9000] [--comment-videos 3] [--rotate 80]
 """
 import argparse
+import datetime as dt
 import json
 import os
 import sys
@@ -87,11 +90,25 @@ def collect_person(yt: YouTube, target: dict, start_iso: str, n_comment_videos: 
     return {"videos": len(video_ids), "views": views, "comments": comments}, video_ids, texts
 
 
+def rotate_targets(targets: list[dict], per_day: int, snapshot_date: str) -> tuple[list[dict], int, int]:
+    """대통령은 매일, 의원은 sample_rank 순 per_day명 묶음을 날짜(KST 일수 % 묶음 수)로 골라 반환.
+    반환 (선택된 대상, 주기 일수, 이번 묶음 번호). per_day 0이거나 의원이 한 묶음에 다 들어가면 주기 1(순환 없음)."""
+    presidents = [t for t in targets if t["role"] == "대통령"]
+    members = sorted((t for t in targets if t["role"] != "대통령"), key=lambda t: int(t["sample_rank"]))
+    if per_day <= 0 or len(members) <= per_day:
+        return presidents + members, 1, 0
+    n_slices = -(-len(members) // per_day)  # ceil
+    idx = dt.date.fromisoformat(snapshot_date).toordinal() % n_slices
+    return presidents + members[idx * per_day:(idx + 1) * per_day], n_slices, idx
+
+
 def main() -> None:
     parser = cc.add_common_args(argparse.ArgumentParser(description=__doc__.split("\n")[0]))
     parser.add_argument("--units", type=int, default=int(os.environ.get("YOUTUBE_DAILY_UNITS", "9000")),
                         help="이번 실행 쿼터 예산(unit). 기본 환경변수 YOUTUBE_DAILY_UNITS(9000)")
     parser.add_argument("--comment-videos", type=int, default=3, help="인물당 댓글을 읽을 영상 수(기본 3)")
+    parser.add_argument("--rotate", type=int, default=int(os.environ.get("YOUTUBE_ROTATE", "80")),
+                        help="하루에 수집할 의원 수(대통령은 매일). 0 = 순환 없이 전원. 기본 환경변수 YOUTUBE_ROTATE(80)")
     args = parser.parse_args()
 
     key = os.environ.get("YOUTUBE_API_KEY", "")
@@ -101,11 +118,15 @@ def main() -> None:
 
     limit = cc.resolve_limit(args)
     snapshot_date = cc.kst_today()
-    start_iso = cc.to_utc_iso(cc.window_start(args.since_hours))
-    targets = cc.load_targets(limit, args.targets_file)
+    all_targets = cc.load_targets(limit, args.targets_file)
+    targets, cycle_days, slice_idx = rotate_targets(all_targets, args.rotate, snapshot_date)
+    # 매일 수집하는 대통령은 기본 창, 순환 대상은 주기만큼 넓힌 창(빠진 날을 덮는다)
+    start_daily = cc.to_utc_iso(cc.window_start(args.since_hours))
+    start_rotated = cc.to_utc_iso(cc.window_start(args.since_hours * cycle_days))
     yt = YouTube(key, args.units)
     per_person = COST["search"] + COST["videos"] + COST["commentThreads"] * args.comment_videos
-    print(f"{snapshot_date}: 대상 {len(targets)}명 (limit {limit}), 창 {start_iso} 이후, 예산 {args.units} unit (≈{per_person}/명)")
+    rot = f"순환 {slice_idx + 1}/{cycle_days}묶음(의원 {args.rotate}명/일, 창 {args.since_hours * cycle_days:g}h)" if cycle_days > 1 else "순환 없음"
+    print(f"{snapshot_date}: 대상 {len(targets)}/{len(all_targets)}명 (limit {limit}, {rot}), 창 {start_daily} 이후, 예산 {args.units} unit (≈{per_person}/명)")
 
     mention_rows, sentiment_rows, skipped = [], [], []
     n_ok = n_fail = 0
@@ -114,7 +135,8 @@ def main() -> None:
             skipped.append(t["name"])
             continue
         try:
-            agg, video_ids, texts = collect_person(yt, t, start_iso, args.comment_videos)
+            daily = t["role"] == "대통령" or cycle_days == 1
+            agg, video_ids, texts = collect_person(yt, t, start_daily if daily else start_rotated, args.comment_videos)
         except QuotaExceeded as e:
             print(f"  중단: {e}", file=sys.stderr)
             skipped.append(t["name"])
@@ -127,7 +149,7 @@ def main() -> None:
             print(f"  실패 {t['name']}({t['person_id']}): {msg}", file=sys.stderr)
             continue
         n_ok += 1
-        detail = {"window_hours": args.since_hours, "video_ids": video_ids}
+        detail = {"window_hours": args.since_hours if daily else args.since_hours * cycle_days, "video_ids": video_ids}
         for metric in ("videos", "views", "comments"):
             mention_rows.append(cc.mention_row(snapshot_date, t["person_id"], SOURCE, f"youtube/{metric}", agg[metric], detail))
         sentiment_rows.extend(cc.make_sentiment_rows(t, SOURCE, texts))
